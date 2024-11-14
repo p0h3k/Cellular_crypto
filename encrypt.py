@@ -9,7 +9,7 @@ from crypt import xor_process
 import rules
 import rules_2d
 
-def encrypt_message(message, manual_seed=None, key_details=None):
+def encrypt_message(message, manual_seed=None, key_details=None, return_keystream=False):
     rule_choices_1d = {
         '30': rules.rule_30,
         '90': rules.rule_90,
@@ -32,7 +32,7 @@ def encrypt_message(message, manual_seed=None, key_details=None):
     else:
         num_automata = int(input("Сколько клеточных автоматов использовать? "))
         block_size = int(input("Введите размер блока для шифрования: "))
-        
+
         selected_rules = []
         seeds = []
         for i in range(num_automata):
@@ -43,14 +43,19 @@ def encrypt_message(message, manual_seed=None, key_details=None):
             else:
                 rule_name = input(f"Выберите правило для автомата {i+1} (complex_rule_1, complex_rule_2, complex_rule_3): ")
                 selected_rules.append(rule_choices_2d[rule_name])
-            seed = random.getrandbits(32) if not manual_seed else manual_seed[i]
+
+            seed_input = input(f"Введите начальное состояние для автомата {i+1} или оставьте пустым для случайного: ")
+            seed = int(seed_input) if seed_input else random.getrandbits(block_size)
             seeds.append(seed)
 
-        lfsr_seed = random.getrandbits(32)
-        taps = lfsr_module.generate_random_taps(block_size)
-        
-        if manual_seed:
-            lfsr_seed, taps = manual_seed[-1], manual_seed[-2]
+        lfsr_seed_input = input("Введите начальное состояние LFSR или оставьте пустым для случайного: ")
+        lfsr_seed = int(lfsr_seed_input) if lfsr_seed_input else random.getrandbits(block_size)
+
+        taps_input = input("Введите биты сдвига LFSR через запятую или оставьте пустым для случайного: ")
+        if taps_input:
+            taps = list(map(int, taps_input.split(',')))
+        else:
+            taps = lfsr_module.generate_random_taps(block_size)
 
     message_bits = to_bits(message)
     total_length = len(message_bits)
@@ -95,4 +100,6 @@ def encrypt_message(message, manual_seed=None, key_details=None):
         "block_size": block_size
     })
 
+    if return_keystream:
+        return encrypted_base64, key_details, final_keystream
     return encrypted_base64, key_details
