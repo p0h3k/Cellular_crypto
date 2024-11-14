@@ -1,7 +1,6 @@
 import random
 import base64
 import json
-import logging
 from utils import to_bits, from_bits
 import cellular_automata as ca
 import cellular_automata_2d as ca2d
@@ -10,44 +9,48 @@ from crypt import xor_process
 import rules
 import rules_2d
 
-# Настройка базового логирования (добавьте конфигурацию согласно вашим предпочтениям)
-logging.basicConfig(level=logging.DEBUG)
-
 def encrypt_message(message, manual_seed=None, key_details=None):
-    rule_choices_1d = {
-        'rule_30': rules.rule_30,
-        'rule_182': rules.rule_182,
-        'rule_126': rules.rule_126
-    }
-
-    rule_choices_2d = {
-        'complex_rule_1': rules_2d.complex_rule_1,
-        'complex_rule_2': rules_2d.complex_rule_2
-    }
-
     if key_details:
         key = json.loads(key_details)
-        selected_rules = [
-            rule_choices_1d.get(rule) or rule_choices_2d.get(rule)
-            for rule in key['rules']
-        ]
-
-        # Debug logging
-        logging.debug(f"Parsed rules: {key['rules']}")
-        logging.debug(f"Selected rules: {[rule.__name__ if rule else 'None' for rule in selected_rules]}")
-
-        # Проверка правил на наличие None
-        for rule in selected_rules:
-            if rule is None:
-                raise ValueError("Некоторые из правил не были правильно определены.")
-
+        selected_rules = [getattr(rules if rule in ['rule_30', 'rule_90', 'rule_150'] else rules_2d, rule) for rule in key['rules']]
         seeds = key['seeds']
         lfsr_seed = key['lfsr_seed']
         taps = key['taps']
         block_size = key['block_size']
     else:
-        # Логическое продолжение существующего кода
-        ...
+        num_automata = int(input("Сколько клеточных автоматов использовать? "))
+        block_size = int(input("Введите размер блока для шифрования: "))
+        
+        rule_choices_1d = {
+            '30': rules.rule_30,
+            '90': rules.rule_90,
+            '150': rules.rule_150,
+        }
+
+        rule_choices_2d = {
+            'complex_rule_1': rules_2d.complex_rule_1,
+            'complex_rule_2': rules_2d.complex_rule_2,
+            'complex_rule_3': rules_2d.complex_rule_3
+        }
+        
+        selected_rules = []
+        seeds = []
+        for i in range(num_automata):
+            type_choice = input(f"Выберите тип автомата для {i+1} (1D, 2D): ")
+            if type_choice == '1D':
+                rule_number = input(f"Выберите правило для автомата {i+1} (30, 90, 150): ")
+                selected_rules.append(rule_choices_1d[rule_number])
+            else:
+                rule_name = input(f"Выберите правило для автомата {i+1} (complex_rule_1, complex_rule_2, complex_rule_3): ")
+                selected_rules.append(rule_choices_2d[rule_name])
+            seed = random.getrandbits(32) if not manual_seed else manual_seed[i]
+            seeds.append(seed)
+
+        lfsr_seed = random.getrandbits(32)
+        taps = lfsr_module.generate_random_taps(block_size)
+        
+        if manual_seed:
+            lfsr_seed, taps = manual_seed[-1], manual_seed[-2]
 
     message_bits = to_bits(message)
     total_length = len(message_bits)
@@ -68,23 +71,20 @@ def encrypt_message(message, manual_seed=None, key_details=None):
                 sequence = automaton.generate_sequence(total_length // block_size + 1)
                 complete_sequence.extend(sequence[:total_length])
 
-    lfsr_initial_state = [int(x) for x in bin(lfsr_seed)[2:].zfill(block_size)]
-    lfsr_sequence, _, _ = lfsr_module.lfsr(taps, lfsr_initial_state, total_length)
-
-    # XOR with LFSR sequence to get the final keystream
-    final_keystream = xor_process(complete_sequence, lfsr_sequence)
-
-    # Запись финальной последовательности в файл
-    with open('encryption_keystream.txt', 'w') as f:
-        f.write(''.join(map(str, final_keystream)))
-
     encrypted_bits = []
     for i, block in enumerate(bit_blocks):
-        key_block = final_keystream[i * block_size:(i + 1) * block_size]
+        key_block = complete_sequence[i * block_size:(i + 1) * block_size]
         encrypted_block = [b1 ^ b2 for b1, b2 in zip(block, key_block)]
         encrypted_bits.extend(encrypted_block)
 
-    encrypted_bytes = bytes(from_bits(encrypted_bits), 'latin1')
+    lfsr_initial_state = [int(x) for x in bin(lfsr_seed)[2:].zfill(block_size)]
+    lfsr_sequence, _, _ = lfsr_module.lfsr(taps, lfsr_initial_state, len(encrypted_bits))
+
+    final_keystream = xor_process(encrypted_bits, lfsr_sequence)
+    with open('encryption_keystream.txt', 'w') as f:
+        f.write(''.join(map(str, final_keystream)))
+#    print("Ключевая последовательность для шифрования:", ''.join(map(str, final_keystream)))
+    encrypted_bytes = bytes(from_bits(final_keystream), 'latin1')
     encrypted_base64 = base64.b64encode(encrypted_bytes).decode('utf-8')
 
     key_details = json.dumps({

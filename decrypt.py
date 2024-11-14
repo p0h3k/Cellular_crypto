@@ -11,7 +11,7 @@ import rules_2d
 def decrypt_message(encrypted_message, key_details):
     key = json.loads(key_details)
 
-    selected_rules = [getattr(rules if rule in ['rule_30', 'rule_182', 'rule_126'] else rules_2d, rule) for rule in key['rules']]
+    selected_rules = [getattr(rules if rule in ['rule_30', 'rule_90', 'rule_150'] else rules_2d, rule) for rule in key['rules']]
     seeds = key['seeds']
     lfsr_seed = key['lfsr_seed']
     taps = key['taps']
@@ -25,7 +25,7 @@ def decrypt_message(encrypted_message, key_details):
 
     complete_sequence = []
     for rule in selected_rules:
-        if rule in [rules.rule_30, rules.rule_182, rules.rule_126]:
+        if rule in [rules.rule_30, rules.rule_90, rules.rule_150]:
             for seed in seeds:
                 initial_state = ca.initialize_automaton(block_size, seed)
                 sequence, _ = ca.generate_sequence(rule, block_size, total_length // block_size + 1, initial_state)
