@@ -10,6 +10,18 @@ import rules
 import rules_2d
 
 def encrypt_message(message, manual_seed=None, key_details=None):
+    rule_choices_1d = {
+        '30': rules.rule_30,
+        '90': rules.rule_90,
+        '150': rules.rule_150,
+    }
+
+    rule_choices_2d = {
+        'complex_rule_1': rules_2d.complex_rule_1,
+        'complex_rule_2': rules_2d.complex_rule_2,
+        'complex_rule_3': rules_2d.complex_rule_3
+    }
+
     if key_details:
         key = json.loads(key_details)
         selected_rules = [getattr(rules if rule in ['rule_30', 'rule_90', 'rule_150'] else rules_2d, rule) for rule in key['rules']]
@@ -20,18 +32,6 @@ def encrypt_message(message, manual_seed=None, key_details=None):
     else:
         num_automata = int(input("Сколько клеточных автоматов использовать? "))
         block_size = int(input("Введите размер блока для шифрования: "))
-        
-        rule_choices_1d = {
-            '30': rules.rule_30,
-            '90': rules.rule_90,
-            '150': rules.rule_150,
-        }
-
-        rule_choices_2d = {
-            'complex_rule_1': rules_2d.complex_rule_1,
-            'complex_rule_2': rules_2d.complex_rule_2,
-            'complex_rule_3': rules_2d.complex_rule_3
-        }
         
         selected_rules = []
         seeds = []
@@ -83,7 +83,7 @@ def encrypt_message(message, manual_seed=None, key_details=None):
     final_keystream = xor_process(encrypted_bits, lfsr_sequence)
     with open('encryption_keystream.txt', 'w') as f:
         f.write(''.join(map(str, final_keystream)))
-#    print("Ключевая последовательность для шифрования:", ''.join(map(str, final_keystream)))
+    
     encrypted_bytes = bytes(from_bits(final_keystream), 'latin1')
     encrypted_base64 = base64.b64encode(encrypted_bytes).decode('utf-8')
 
