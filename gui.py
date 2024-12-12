@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import filedialog, messagebox, simpledialog
+from tkinter import filedialog, messagebox, simpledialog, ttk
 import json
 import random
 from encrypt import encrypt_message
@@ -65,7 +65,9 @@ class CryptoApp(tk.Tk):
     def clear_entries(self):
         self.message_text.delete(1.0, tk.END)
         self.result_text.delete(1.0, tk.END)
-        self.key_text.delete(1.0, tk.END)
+        # Очищаем ключ только при смене режима
+        if self.mode.get() != 'decrypt':
+            self.key_text.delete(1.0, tk.END)
         self.keystream_text.delete(1.0, tk.END)
 
     def load_file(self):
@@ -73,41 +75,189 @@ class CryptoApp(tk.Tk):
         if filepath:
             self.file_label.config(text=filepath)
             try:
-                # Открываем файл, читаем часть и сразу закрываем
                 with open(filepath, 'r', encoding='utf-8') as file:
                     max_chars = 1024  # Example limit for characters to display
                     data = file.read(max_chars)
                     self.message_text.delete(1.0, tk.END)
-                    self.message_text.insert(tk.END, data + ('\n\n... (Кусок файла)' if len(data) == max_chars else ''))
+                    self.message_text.insert(tk.END, data)
             except Exception as e:
                 messagebox.showerror("Ошибка", f"Не удалось открыть файл: {e}")
 
     def configure_encryption_params(self):
-        num_automata = simpledialog.askinteger("Количество автоматов", "Введите количество автоматов:")
-        if num_automata is None:
+        # Создаем новое окно для ввода параметров
+        self.param_window = tk.Toplevel(self)
+        self.param_window.title("Параметры шифрования")
+
+        row = 0
+
+        # Количество автоматов
+        tk.Label(self.param_window, text="Количество автоматов:").grid(row=row, column=0, sticky=tk.W)
+        self.num_automata_var = tk.StringVar()
+        tk.Entry(self.param_window, textvariable=self.num_automata_var).grid(row=row, column=1)
+        row += 1
+
+        # Кнопка для генерации полей автоматов
+        tk.Button(self.param_window, text="Задать параметры автоматов", command=self.generate_automata_entries).grid(row=row, column=0, columnspan=2)
+        row += 1
+
+        # Фрейм для параметров автоматов
+        self.automata_frame = tk.Frame(self.param_window)
+        self.automata_frame.grid(row=row, column=0, columnspan=2)
+        row += 1
+
+        # Размер блока
+        tk.Label(self.param_window, text="Размер блока:").grid(row=row, column=0, sticky=tk.W)
+        self.block_size_var = tk.StringVar()
+        tk.Entry(self.param_window, textvariable=self.block_size_var).grid(row=row, column=1)
+        row += 1
+
+        # Начальное состояние LFSR
+        tk.Label(self.param_window, text="Начальное состояние LFSR:").grid(row=row, column=0, sticky=tk.W)
+        self.lfsr_seed_var = tk.StringVar()
+        tk.Entry(self.param_window, textvariable=self.lfsr_seed_var).grid(row=row, column=1)
+        row += 1
+
+        # Биты сдвига LFSR
+        tk.Label(self.param_window, text="Биты сдвига LFSR:").grid(row=row, column=0, sticky=tk.W)
+        self.lfsr_taps_var = tk.StringVar()
+        tk.Entry(self.param_window, textvariable=self.lfsr_taps_var).grid(row=row, column=1)
+        row += 1
+
+        # Кнопки OK и Cancel
+        tk.Button(self.param_window, text="OK", command=self.save_encryption_params).grid(row=row, column=0)
+        tk.Button(self.param_window, text="Cancel", command=self.param_window.destroy).grid(row=row, column=1)
+
+    def generate_automata_entries(self):
+        # Очищаем предыдущие записи
+        for widget in self.automata_frame.winfo_children():
+            widget.destroy()
+
+        try:
+            num_automata = int(self.num_automata_var.get())
+        except ValueError:
+            messagebox.showerror("Ошибка", "Введите корректное количество автоматов.")
+            return
+
+        self.automata_entries = []
+
+        for i in range(num_automata):
+            row = i * 4
+            tk.Label(self.automata_frame, text=f"Автомат {i+1} тип:").grid(row=row, column=0, sticky=tk.W)
+            automaton_type_var = tk.StringVar()
+            automaton_type_combobox = ttk.Combobox(self.automata_frame, textvariable=automaton_type_var)
+            automaton_type_combobox['values'] = ('1D', '2D')
+            automaton_type_combobox.grid(row=row, column=1)
+
+            row += 1
+            tk.Label(self.automata_frame, text=f"Автомат {i+1} правило:").grid(row=row, column=0, sticky=tk.W)
+            rule_var = tk.StringVar()
+            rule_combobox = ttk.Combobox(self.automata_frame, textvariable=rule_var)
+            rule_combobox.grid(row=row, column=1)
+
+            # Обновляем список правил при выборе типа автомата
+            def update_rule_options(event, rule_combobox=rule_combobox, automaton_type_var=automaton_type_var):
+                automaton_type = automaton_type_var.get()
+                if automaton_type == '1D':
+                    rule_combobox['values'] = ['rule_30', 'rule_90', 'rule_150']
+                elif automaton_type == '2D':
+                    rule_combobox['values'] = ['complex_rule_1', 'complex_rule_2', 'complex_rule_3']
+                else:
+                    rule_combobox.set('')
+                    rule_combobox['values'] = []
+
+            automaton_type_combobox.bind('<<ComboboxSelected>>', update_rule_options)
+
+            row += 1
+            tk.Label(self.automata_frame, text=f"Автомат {i+1} начальное состояние:").grid(row=row, column=0, sticky=tk.W)
+            seed_var = tk.StringVar()
+            tk.Entry(self.automata_frame, textvariable=seed_var).grid(row=row, column=1)
+
+            self.automata_entries.append((automaton_type_var, rule_var, seed_var))
+
+    def save_encryption_params(self):
+        # Собираем параметры
+        try:
+            num_automata = int(self.num_automata_var.get())
+            if num_automata <= 0:
+                raise ValueError
+        except ValueError:
+            messagebox.showerror("Ошибка", "Введите корректное количество автоматов.")
             return
 
         self.automata_params = []
 
-        rule_choices_1d = ['rule_30', 'rule_90', 'rule_150']
-        rule_choices_2d = ['complex_rule_1', 'complex_rule_2', 'complex_rule_3']
+        for automaton_type_var, rule_var, seed_var in self.automata_entries:
+            automaton_type = automaton_type_var.get().strip()
+            rule = rule_var.get().strip()
+            seed = seed_var.get().strip()
 
-        for i in range(num_automata):
-            automaton_type = simpledialog.askstring("Тип автомата", f"Выберите тип автомата {i+1} (1D, 2D):")
-            if automaton_type == '1D':
-                rule = simpledialog.askstring("Правило 1D", f"Выберите правило для автомата {i+1} (rule_30, rule_90, rule_150):")
+            # Если тип автомата или правило не указаны, генерируем случайные
+            if not automaton_type:
+                automaton_type = random.choice(['1D', '2D'])
+
+            if not rule or rule == '':
+                if automaton_type == '1D':
+                    rule = random.choice(['rule_30', 'rule_90', 'rule_150'])
+                else:
+                    rule = random.choice(['complex_rule_1', 'complex_rule_2', 'complex_rule_3'])
             else:
-                rule = simpledialog.askstring("Правило 2D", f"Выберите правило для автомата {i+1} (complex_rule_1, complex_rule_2, complex_rule_3):")
+                # Проверяем, что выбранное правило соответствует типу автомата
+                if automaton_type == '1D' and rule not in ['rule_30', 'rule_90', 'rule_150']:
+                    messagebox.showerror("Ошибка", f"Недопустимое правило {rule} для автомата 1D.")
+                    return
+                elif automaton_type == '2D' and rule not in ['complex_rule_1', 'complex_rule_2', 'complex_rule_3']:
+                    messagebox.showerror("Ошибка", f"Недопустимое правило {rule} для автомата 2D.")
+                    return
 
-            use_random_seed = messagebox.askyesno("Случайное начальное состояние", f"Использовать случайное начальное состояние для автомата {i+1}?")
-            seed = random.getrandbits(32) if use_random_seed else simpledialog.askinteger("Начальное состояние", f"Введите начальное состояние для автомата {i+1}:")
+            if not seed:
+                seed = random.getrandbits(32)
+            else:
+                try:
+                    seed = int(seed)
+                except ValueError:
+                    messagebox.showerror("Ошибка", "Начальное состояние автомата должно быть целым числом.")
+                    return
+
             self.automata_params.append((rule, seed))
 
-        block_size = simpledialog.askinteger("Размер блока", "Введите размер блока для шифрования:")
-        use_random_lfsr_seed = messagebox.askyesno("Случайное начальное состояние LFSR", "Использовать случайное начальное состояние для LFSR?")
-        lfsr_seed = random.getrandbits(32) if use_random_lfsr_seed else simpledialog.askinteger("Начальное состояние LFSR", "Введите начальное состояние LFSR:")
-        taps_input = simpledialog.askstring("Биты сдвига LFSR", "Введите биты сдвига LFSR через запятую или оставьте пустым для случайного:")
-        taps = list(map(int, taps_input.split(','))) if taps_input else lfsr_module.generate_random_taps(block_size)
+        # Размер блока
+        block_size_str = self.block_size_var.get().strip()
+        if block_size_str:
+            try:
+                block_size = int(block_size_str)
+                if block_size <= 0:
+                    raise ValueError
+            except ValueError:
+                messagebox.showerror("Ошибка", "Размер блока должен быть положительным целым числом.")
+                return
+        else:
+            block_size = 32  # Значение по умолчанию
+
+        # Начальное состояние LFSR
+        lfsr_seed_str = self.lfsr_seed_var.get().strip()
+        if lfsr_seed_str:
+            try:
+                lfsr_seed = int(lfsr_seed_str)
+                if lfsr_seed < 0:
+                    raise ValueError
+            except ValueError:
+                messagebox.showerror("Ошибка", "Начальное состояние LFSR должно быть неотрицательным целым числом.")
+                return
+        else:
+            lfsr_seed = random.getrandbits(block_size)
+
+        # Биты сдвига LFSR
+        lfsr_taps_str = self.lfsr_taps_var.get().strip()
+        if lfsr_taps_str:
+            try:
+                taps = list(map(int, lfsr_taps_str.split(',')))
+                if not taps:
+                    raise ValueError
+            except ValueError:
+                messagebox.showerror("Ошибка", "Биты сдвига LFSR должны быть числами, разделенными запятыми.")
+                return
+        else:
+            taps = lfsr_module.generate_random_taps(block_size)
 
         self.key_details = json.dumps({
             "rules": [x[0] for x in self.automata_params],
@@ -120,13 +270,17 @@ class CryptoApp(tk.Tk):
         self.key_text.delete(1.0, tk.END)
         self.key_text.insert(tk.END, self.key_details)
 
+        self.param_window.destroy()
+
     def execute_action(self):
         message = self.message_text.get(1.0, tk.END).strip()
         mode = self.mode.get()
 
         try:
             if mode == "encrypt":
-                key_details = self.key_details if hasattr(self, 'key_details') else None
+                key_details = self.key_text.get(1.0, tk.END).strip()
+                if not key_details:
+                    key_details = getattr(self, 'key_details', None)
                 encrypted_base64, key_details, keystream = encrypt_message(message, key_details=key_details, return_keystream=True)
                 self.result_text.delete(1.0, tk.END)
                 self.result_text.insert(tk.END, encrypted_base64)
@@ -140,6 +294,9 @@ class CryptoApp(tk.Tk):
                 self.key_text.insert(tk.END, key_details)
             elif mode == "decrypt":
                 key_details = self.key_text.get(1.0, tk.END).strip()
+                if not key_details:
+                    messagebox.showerror("Ошибка", "Ключ для расшифровки пустой.")
+                    return
                 decrypted_message = decrypt_message(message, key_details)
                 self.result_text.delete(1.0, tk.END)
                 self.result_text.insert(tk.END, decrypted_message)
@@ -147,6 +304,9 @@ class CryptoApp(tk.Tk):
                     f.write(decrypted_message)
             elif mode == "key_encrypt":
                 key_details = self.key_text.get(1.0, tk.END).strip()
+                if not key_details:
+                    messagebox.showerror("Ошибка", "Ключ для шифрования пустой.")
+                    return
                 encrypted_base64, _, keystream = encrypt_message(message, key_details=key_details, return_keystream=True)
                 self.result_text.delete(1.0, tk.END)
                 self.result_text.insert(tk.END, encrypted_base64)
