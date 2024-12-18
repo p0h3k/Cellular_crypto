@@ -1,3 +1,5 @@
+# encrypt.py
+
 import random
 import base64
 import json
@@ -57,7 +59,9 @@ def encrypt_message(message, manual_seed=None, key_details=None, return_keystrea
         else:
             taps = lfsr_module.generate_random_taps(block_size)
 
-    message_bits = to_bits(message)
+    # Преобразование сообщения в байты и затем в биты
+    message_bytes = message.encode('utf-8')
+    message_bits = to_bits(message_bytes)
     total_length = len(message_bits)
     padded_bits = message_bits + [0] * (block_size - len(message_bits) % block_size)
     bit_blocks = [padded_bits[i:i + block_size] for i in range(0, len(padded_bits), block_size)]
@@ -89,7 +93,7 @@ def encrypt_message(message, manual_seed=None, key_details=None, return_keystrea
     with open('encryption_keystream.txt', 'w') as f:
         f.write(''.join(map(str, final_keystream)))
     
-    encrypted_bytes = bytes(from_bits(final_keystream), 'latin1')
+    encrypted_bytes = from_bits(final_keystream)
     encrypted_base64 = base64.b64encode(encrypted_bytes).decode('utf-8')
 
     key_details = json.dumps({

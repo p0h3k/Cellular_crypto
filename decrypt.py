@@ -1,3 +1,5 @@
+# decrypt.py
+
 import json
 import base64
 from utils import to_bits, from_bits
@@ -18,7 +20,7 @@ def decrypt_message(encrypted_message, key_details):
     block_size = key['block_size']
 
     encrypted_bytes = base64.b64decode(encrypted_message)
-    encrypted_bits = to_bits(encrypted_bytes.decode('latin1'))
+    encrypted_bits = to_bits(encrypted_bytes)
 
     total_length = len(encrypted_bits)
     bit_blocks = [encrypted_bits[i:i + block_size] for i in range(0, len(encrypted_bits), block_size)]
@@ -47,6 +49,7 @@ def decrypt_message(encrypted_message, key_details):
     lfsr_sequence, _, _ = lfsr_module.lfsr(taps, lfsr_initial_state, len(decrypted_bits))
 
     final_stream = xor_process(decrypted_bits, lfsr_sequence)
-    decrypted_message = from_bits(final_stream[:total_length])
+    decrypted_bytes = from_bits(final_stream[:total_length])
+    decrypted_message = decrypted_bytes.decode('utf-8')
 
     return decrypted_message
