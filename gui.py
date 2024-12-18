@@ -76,10 +76,19 @@ class CryptoApp(tk.Tk):
             self.file_label.config(text=filepath)
             try:
                 with open(filepath, 'r', encoding='utf-8') as file:
-                    max_chars = 1024  # Example limit for characters to display
+                    max_chars = 1024  # Пример ограничения на количество символов для отображения
                     data = file.read(max_chars)
                     self.message_text.delete(1.0, tk.END)
                     self.message_text.insert(tk.END, data)
+            except UnicodeDecodeError:
+                # Если не удалось прочитать файл в кодировке utf-8, пробуем cp1251
+                try:
+                    with open(filepath, 'r', encoding='cp1251') as file:
+                        data = file.read(max_chars)
+                        self.message_text.delete(1.0, tk.END)
+                        self.message_text.insert(tk.END, data)
+                except Exception as e:
+                    messagebox.showerror("Ошибка", f"Не удалось открыть файл: {e}")
             except Exception as e:
                 messagebox.showerror("Ошибка", f"Не удалось открыть файл: {e}")
 
@@ -298,6 +307,25 @@ class CryptoApp(tk.Tk):
                     messagebox.showerror("Ошибка", "Ключ для расшифровки пустой.")
                     return
                 decrypted_message = decrypt_message(message, key_details)
+                # Проверяем и декодируем сообщение при необходимости
+                if isinstance(decrypted_message, bytes):
+                    # Сохраняем расшифрованные байты для диагностики
+                    with open("decrypted_bytes.bin", "wb") as f:
+                        f.write(decrypted_message)
+                    # Пытаемся декодировать с разными кодировками
+                    for encoding in ('utf-8', 'cp1251', 'latin1'):
+                        try:
+                            decrypted_message = decrypted_message.decode(encoding)
+                            break
+                        except UnicodeDecodeError:
+                            continue
+                    else:
+                        # Если не удалось декодировать, сообщаем об ошибке
+                        messagebox.showerror("Ошибка", f"Не удалось декодировать расшифрованное сообщение. Расшифрованные байты сохранены в 'decrypted_bytes.bin'.")
+                        return
+                elif not isinstance(decrypted_message, str):
+                    messagebox.showerror("Ошибка", "Неверный формат расшифрованного сообщения.")
+                    return
                 self.result_text.delete(1.0, tk.END)
                 self.result_text.insert(tk.END, decrypted_message)
                 with open("decrypt.txt", 'w', encoding='utf-8') as f:

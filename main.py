@@ -23,7 +23,7 @@ def main():
         with open(filename, 'r', encoding='utf-8') as f:
             message = f.read()
         
-        key_details = input("Введите ключ для шифрования (JSON): ")
+        key_details = input("Введите ключ для шифрования (JSON): ").strip()
         encrypted_base64, _ = encrypt_message(message, key_details=key_details)
         with open("encrypt.txt", 'w', encoding='utf-8') as f:
             f.write(encrypted_base64 + "\n")
@@ -35,7 +35,7 @@ def main():
         with open(filename, 'r', encoding='utf-8') as f:
             encrypted_message = f.read().strip()
         
-        key_details = input("Введите ключ для расшифровки (JSON): ")
+        key_details = input("Введите ключ для расшифровки (JSON): ").strip()
         decrypted_message = decrypt_message(encrypted_message, key_details)
         with open("decrypt.txt", 'w', encoding='utf-8') as f:
             f.write(decrypted_message)
