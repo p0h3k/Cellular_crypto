@@ -87,8 +87,7 @@ def encrypt_message(message, manual_seed=None, key_details=None, return_keystrea
             size = int(block_size ** 0.5)
             automaton = ca2d.CellularAutomaton2D(rule, size, seed)
             sequence = automaton.generate_sequence((total_length // (block_size)) + 1)
-            flat_sequence = [bit for block in sequence for bit in block]
-            complete_sequence.extend(flat_sequence[:total_length])
+            complete_sequence.extend(sequence[:total_length])
 
     # Проверка и генерация дополнительного ключевого потока, если необходимо
     while len(complete_sequence) < total_length:

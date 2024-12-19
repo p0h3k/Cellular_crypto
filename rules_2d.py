@@ -15,11 +15,24 @@ def complex_rule_1(automaton):
             bottom_right = automaton[(i + 1) % size][(j + 1) % size]
 
             cell = automaton[i][j]
+
+            # Приводим значения к булевым
+            left = bool(left)
+            right = bool(right)
+            top = bool(top)
+            bottom = bool(bottom)
+            top_left = bool(top_left)
+            top_right = bool(top_right)
+            bottom_left = bool(bottom_left)
+            bottom_right = bool(bottom_right)
+            cell = bool(cell)
+
             transition = (
-                (cell & (left ^ right)) |
-                (((top & bottom) ^ (top_left | bottom_right)) & (top_right ^ bottom_left))
+                (cell and (left != right)) or
+                (((top and bottom) != (top_left or bottom_right)) and (top_right != bottom_left))
             )
-            new_automaton[i][j] = cell ^ transition
+
+            new_automaton[i][j] = int(cell != transition)
 
     return new_automaton
 
@@ -35,8 +48,17 @@ def complex_rule_2(automaton):
             top = automaton[(i - 1) % size][j]
             bottom = automaton[(i + 1) % size][j]
             center = automaton[i][j]
-            transition = (center | left) ^ (right & top) ^ (bottom | (left & right))
-            new_automaton[i][j] = center ^ transition
+
+            # Приводим значения к булевым
+            left = bool(left)
+            right = bool(right)
+            top = bool(top)
+            bottom = bool(bottom)
+            center = bool(center)
+
+            transition = (center or left) != (right and top) != (bottom or (left and right))
+
+            new_automaton[i][j] = int(center != transition)
 
     return new_automaton
 
@@ -59,14 +81,23 @@ def complex_rule_3(automaton):
             bottom_right = automaton[(i + 1) % size][(j + 1) % size]
             center = automaton[i][j]
 
-            # Более сложные вычисления перехода
-            # Эти операции включают использование сдвига и XOR с дополнением
+            # Приводим значения к булевым
+            left = bool(left)
+            right = bool(right)
+            top = bool(top)
+            bottom = bool(bottom)
+            top_left = bool(top_left)
+            top_right = bool(top_right)
+            bottom_left = bool(bottom_left)
+            bottom_right = bool(bottom_right)
+            center = bool(center)
+
+            # Выполняем логические операции вместо побитовых
             transition = (
-                (((left & right) | (top & bottom)) ^ (top_left | bottom_right)) ^
-                (((top_right & bottom_left) | center) ^ ((~left ^ right) & (~top ^ bottom)))
+                (((left and right) or (top and bottom)) != (top_left or bottom_right)) !=
+                (((top_right and bottom_left) or center) != ((not left != right) and (not top != bottom)))
             )
 
-            # Применение найденного перехода к центральной ячейке
-            new_automaton[i][j] = int(bool(center) ^ bool(transition))
+            new_automaton[i][j] = int(center != transition)
 
     return new_automaton

@@ -39,8 +39,7 @@ def decrypt_message(encrypted_message, key_details):
             size = int(block_size ** 0.5)
             automaton = ca2d.CellularAutomaton2D(rule, size, seed)
             sequence = automaton.generate_sequence((total_length // block_size) + 1)
-            flat_sequence = [bit for block in sequence for bit in block]
-            complete_sequence.extend(flat_sequence[:total_length])
+            complete_sequence.extend(sequence[:total_length])
 
     while len(complete_sequence) < total_length:
         for rule, seed in zip(selected_rules, seeds):
